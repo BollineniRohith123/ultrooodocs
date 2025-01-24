@@ -7,14 +7,39 @@ from openai import AsyncOpenAI
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-load_dotenv()
+# Add error handling for environment variables
+def validate_env_vars():
+    required_vars = ['OPENAI_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        st.error(f"Missing environment variables: {', '.join(missing_vars)}")
+        st.stop()
 
-# Initialize OpenAI and Supabase clients
-openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-supabase: Client = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_SERVICE_KEY")
-)
+# Load environment variables with error handling
+try:
+    load_dotenv()
+    validate_env_vars()
+except Exception as e:
+    st.error(f"Error loading environment variables: {e}")
+    st.stop()
+
+# Initialize clients with robust error handling
+try:
+    # Validate Supabase URL format
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    if not supabase_url.startswith(("https://", "http://")):
+        raise ValueError("Invalid Supabase URL. Must start with https:// or http://")
+
+    openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    supabase: Client = create_client(
+        supabase_url,
+        os.getenv("SUPABASE_SERVICE_KEY")
+    )
+except Exception as e:
+    st.error(f"Initialization Error: {e}")
+    st.error("Please check your Supabase and OpenAI configurations.")
+    st.stop()
 
 async def get_embedding(text: str) -> List[float]:
     """Get embedding vector from OpenAI."""
@@ -108,4 +133,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
